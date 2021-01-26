@@ -6,6 +6,7 @@
     using System.Threading.Tasks;
     using DSharpPlus;
     using DSharpPlus.CommandsNext;
+    using DSharpPlus.Entities;
     using DSharpPlus.Interactivity;
     using DSharpPlus.Interactivity.Enums;
     using DSharpPlus.Interactivity.Extensions;
@@ -42,7 +43,7 @@
 
             _commands.RegisterCommands(Assembly.GetExecutingAssembly());
 
-            await _discordClient.ConnectAsync();
+            await _discordClient.ConnectAsync(new DiscordActivity("your funny names", ActivityType.ListeningTo));
 
             await using var db = new NameBadgeContext();
             await db.Database.MigrateAsync();
