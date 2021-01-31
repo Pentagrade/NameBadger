@@ -8,6 +8,7 @@ namespace NameBadger.Bot.Services
     using DSharpPlus.CommandsNext;
     using DSharpPlus.Entities;
     using DSharpPlus.EventArgs;
+    using DSharpPlus.Exceptions;
     using JetBrains.Annotations;
     using NameBadger.Bot.Contexts;
     using NameBadger.Bot.Models;
@@ -20,13 +21,13 @@ namespace NameBadger.Bot.Services
 
         public NameBadgeService([NotNull] DiscordClient client)
         {
-            _client              =  client;
+            _client                   =  client;
             client.GuildMemberRemoved += ClientOnGuildMemberRemoved;
-            client.MessageCreated += ClientOnMessageCreated;
+            client.MessageCreated     += ClientOnMessageCreated;
 
             var timeNow    = DateTime.UtcNow;
             var timeTarget = timeNow.AddDays(1).Date;
-            _timer         =  new Timer((timeTarget - timeNow).TotalMilliseconds);
+            _timer         =  new Timer((timeTarget - timeNow).TotalMilliseconds) {AutoReset = false};
             _timer.Elapsed += DailyTimerOnElapsed;
             _timer.Enabled =  true;
         }
@@ -36,11 +37,34 @@ namespace NameBadger.Bot.Services
             await Task.Yield();
             var db      = new NameBadgeContext();
             var timeNow = DateTime.UtcNow;
-            foreach (var badge in db.NameBadges.Where(badge => (timeNow - badge.LastInteraction).Days > 2))
-                await (await _client.GetGuildAsync(badge.GuildId)).GetRole(badge.RoleId).ModifyAsync(hoist: false);
+
+            foreach (var (id, guild) in _client.Guilds)
+            {
+                var badgeSelection = db.NameBadges.Where(x => x.GuildId == id);
+                if (!badgeSelection.Any()) continue;
+
+                foreach (var badge in badgeSelection)
+                    if (!guild.Members.ContainsKey(badge.UserId))
+                        await guild.GetRole(badge.RoleId).DeleteAsync();
+            }
+
+            foreach (var badge in db.NameBadges.Select(x => x).ToList())
+                if ((timeNow - badge.LastInteraction).Days > 2)
+                {
+                    try
+                    {
+                        await (await _client.GetGuildAsync(badge.GuildId)).GetRole(badge.RoleId)
+                                                                          .ModifyAsync(hoist: false);
+                    }
+                    catch (UnauthorizedException ex)
+                    {
+                        db.NameBadges.Remove(badge);
+                        await db.SaveChangesAsync();
+                    }
+                }
 
             var timeTarget = timeNow.AddDays(1).Date;
-            _timer         =  new Timer((timeTarget - timeNow).Milliseconds);
+            _timer         =  new Timer((timeTarget - timeNow).Milliseconds) {AutoReset = false};
             _timer.Elapsed += DailyTimerOnElapsed;
             _timer.Enabled =  true;
         }
@@ -81,12 +105,15 @@ namespace NameBadger.Bot.Services
             await db.SaveChangesAsync();
         }
 
-        internal static async Task SetNameBadge([NotNull] CommandContext ctx, string roleName, DiscordColor color = default, bool admin = false, [CanBeNull] DiscordUser userOverride = null)
+        internal static async Task SetNameBadge([NotNull] CommandContext ctx,                    string roleName,
+                                                DiscordColor             color        = default, bool   admin = false,
+                                                [CanBeNull] DiscordUser  userOverride = null)
         {
             var filter = new ProfanityFilter();
             if (!admin && filter.IsProfanity(roleName))
             {
-                await ctx.RespondAsync("Uh oh, you used a naughty word!\nIf you disagree then please go and contact an admin :3");
+                await ctx.RespondAsync(
+                    "Uh oh, you used a naughty word!\nIf you disagree then please go and contact an admin :3");
                 return;
             }
 
@@ -112,12 +139,12 @@ namespace NameBadger.Bot.Services
             {
                 userBadge = new NameBadge
                 {
-                    GuildId   = ctx.Guild.Id,
-                    RoleId    = userRole.Id,
-                    UserId    = targetUser.Id,
-                    RoleColor = color.ToString(),
-                    RoleName  = roleName,
-                    IsHoisted = true,
+                    GuildId         = ctx.Guild.Id,
+                    RoleId          = userRole.Id,
+                    UserId          = targetUser.Id,
+                    RoleColor       = color.ToString(),
+                    RoleName        = roleName,
+                    IsHoisted       = true,
                     LastInteraction = DateTime.UtcNow
                 };
 
@@ -131,22 +158,24 @@ namespace NameBadger.Bot.Services
             await db.SaveChangesAsync();
 
             if (userOverride != null)
-                await ctx.RespondAsync($"{userOverride.Mention}! I now name you, {userRole.Mention}. Go forth and spread the badgers word!");
+                await ctx.RespondAsync(
+                    $"{userOverride.Mention}! I now name you, {userRole.Mention}. Go forth and spread the badgers word!");
             else
                 await ctx.RespondAsync($"I now name thee, {userRole.Mention}. Go forth and spread the badgers word!");
         }
 
-        internal static async Task AddNameBadge(ulong guildId, ulong roleId, ulong userId, string color, string roleName)
+        internal static async Task AddNameBadge(ulong  guildId, ulong roleId, ulong userId, string color,
+                                                string roleName)
         {
             var db = new NameBadgeContext();
             await db.NameBadges.AddAsync(new NameBadge
             {
-                GuildId = guildId,
-                RoleId = roleId,
-                UserId = userId,
-                RoleColor = color,
-                RoleName = roleName,
-                IsHoisted = true,
+                GuildId         = guildId,
+                RoleId          = roleId,
+                UserId          = userId,
+                RoleColor       = color,
+                RoleName        = roleName,
+                IsHoisted       = true,
                 LastInteraction = DateTime.UtcNow
             });
 
