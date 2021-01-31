@@ -48,20 +48,19 @@ namespace NameBadger.Bot.Services
                         await guild.GetRole(badge.RoleId).DeleteAsync();
             }
 
+            // ReSharper disable once ForeachCanBePartlyConvertedToQueryUsingAnotherGetEnumerator
             foreach (var badge in db.NameBadges.Select(x => x).ToList())
                 if ((timeNow - badge.LastInteraction).Days > 2)
-                {
                     try
                     {
                         await (await _client.GetGuildAsync(badge.GuildId)).GetRole(badge.RoleId)
                                                                           .ModifyAsync(hoist: false);
                     }
-                    catch (UnauthorizedException ex)
+                    catch (UnauthorizedException)
                     {
                         db.NameBadges.Remove(badge);
                         await db.SaveChangesAsync();
                     }
-                }
 
             var timeTarget = timeNow.AddDays(1).Date;
             _timer         =  new Timer((timeTarget - timeNow).Milliseconds) {AutoReset = false};
