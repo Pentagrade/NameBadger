@@ -34,7 +34,11 @@ namespace NameBadger.Bot.Services
 
         private static async void DailyTimerOnElapsed(object sender, ElapsedEventArgs e)
         {
-            await Task.Yield();
+            await CleanBadgeRecords();
+        }
+
+        public static async Task CleanBadgeRecords()
+        {
             var db      = new NameBadgeContext();
             var timeNow = DateTime.UtcNow;
 

@@ -158,5 +158,13 @@ namespace NameBadger.Bot.Modules
                     $"My badger nose has detected that {reason} I only like making 1 badge, and that badger better be used!");
             }
         }
+
+        [Command]
+        [RequireOwner]
+        [UsedImplicitly]
+        public async Task Clean()
+        {
+            await NameBadgeService.CleanBadgeRecords();
+        }
     }
 }
