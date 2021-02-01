@@ -123,6 +123,7 @@ namespace NameBadger.Bot.Modules
         }
 
         [Command]
+        [RequireOwner]
         [RequirePermissions(Permissions.ManageRoles)]
         [UsedImplicitly]
         public async Task Link([NotNull] CommandContext ctx, [NotNull] DiscordRole targetRole)
@@ -161,8 +162,9 @@ namespace NameBadger.Bot.Modules
 
         [Command]
         [RequireOwner]
+        [RequirePermissions(Permissions.ManageRoles)]
         [UsedImplicitly]
-        public async Task Clean()
+        public async Task Clean(CommandContext ctx)
         {
             await NameBadgeService.CleanBadgeRecords();
         }
