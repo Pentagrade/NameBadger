@@ -55,6 +55,8 @@ namespace NameBadger.Bot.Services
                     {
                         await (await _client.GetGuildAsync(badge.GuildId)).GetRole(badge.RoleId)
                                                                           .ModifyAsync(hoist: false);
+                        badge.IsHoisted = false;
+                        await db.SaveChangesAsync();
                     }
                     catch (UnauthorizedException)
                     {
