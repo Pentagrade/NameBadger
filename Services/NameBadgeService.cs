@@ -47,9 +47,11 @@ namespace NameBadger.Bot.Services
                 var badgeSelection = db.NameBadges.Where(x => x.GuildId == id);
                 if (!badgeSelection.Any()) continue;
 
+                var liveGuild = await _client.GetGuildAsync(id);
+
                 foreach (var badge in badgeSelection)
-                    if (!guild.Members.ContainsKey(badge.UserId))
-                        await guild.GetRole(badge.RoleId).DeleteAsync();
+                    if (!liveGuild.Members.ContainsKey(badge.UserId))
+                        await liveGuild.GetRole(badge.RoleId).DeleteAsync();
             }
 
             // ReSharper disable once ForeachCanBePartlyConvertedToQueryUsingAnotherGetEnumerator
